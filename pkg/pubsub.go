@@ -10,13 +10,13 @@ import (
 	"github.com/Shopify/sarama"
 	driver "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
-	"github.com/nats-io/stan.go"
+	natsOrg "github.com/nats-io/nats.go"
 
 	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill-amqp/pkg/amqp"
+	"github.com/ThreeDotsLabs/watermill-amqp/v2/pkg/amqp"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
 	"github.com/ThreeDotsLabs/watermill-kafka/v2/pkg/kafka"
-	"github.com/ThreeDotsLabs/watermill-nats/pkg/nats"
+	"github.com/ThreeDotsLabs/watermill-nats/v2/pkg/nats"
 	"github.com/ThreeDotsLabs/watermill-sql/pkg/sql"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
@@ -102,32 +102,24 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 		Constructor: func() (message.Publisher, message.Subscriber) {
 			natsURL := os.Getenv("WATERMILL_NATS_URL")
 			if natsURL == "" {
-				natsURL = "nats://nats-streaming:4222"
+				natsURL = "nats://nats:4222"
 			}
 
-			pub, err := nats.NewStreamingPublisher(nats.StreamingPublisherConfig{
-				ClusterID: "test-cluster",
-				ClientID:  "benchmark_pub",
-				StanOptions: []stan.Option{
-					stan.NatsURL(natsURL),
-				},
-				Marshaler: nats.GobMarshaler{},
+			pub, err := nats.NewPublisher(nats.PublisherConfig{
+				URL:         natsURL,
+				NatsOptions: []natsOrg.Option{},
+				Marshaler:   nats.GobMarshaler{},
 			}, logger)
 			if err != nil {
 				panic(err)
 			}
 
-			sub, err := nats.NewStreamingSubscriber(nats.StreamingSubscriberConfig{
-				ClusterID:        "test-cluster",
-				ClientID:         "benchmark_sub",
-				QueueGroup:       "test-queue",
-				DurableName:      "durable-name",
+			sub, err := nats.NewSubscriber(nats.SubscriberConfig{
+				URL:              natsURL,
+				JetStream:        nats.JetStreamConfig{Disabled: false, TrackMsgId: true},
 				SubscribersCount: 16, // todo - experiment
 				Unmarshaler:      nats.GobMarshaler{},
 				AckWaitTimeout:   time.Second,
-				StanOptions: []stan.Option{
-					stan.NatsURL(natsURL),
-				},
 			}, logger)
 			if err != nil {
 				panic(err)
